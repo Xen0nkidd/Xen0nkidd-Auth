@@ -1,4 +1,3 @@
-javascript
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -11,45 +10,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-render-env";
 const APP_URL = process.env.APP_URL || "https://xen0nkidd.github.io";
-const EMAIL_FROM = process.env.EMAIL_FROM || "xenonnetworkalt@gmail.com";
-
+const EMAIL_FROM = process.env.EMAIL_FROM || "xenonnetworkofficial@gmail.com";
 const DATA = path.join(__dirname, "users.json");
 
 app.use(cors({ origin: true }));
 app.use(express.json());
-
-// Brevo email helper
-async function sendEmail({ to, subject, html, text }) {
-  const key = process.env.BREVO_API_KEY;
-  if (!key) {
-    console.error("BREVO_API_KEY missing");
-    throw new Error("Email not configured");
-  }
-
-  const from = process.env.EMAIL_FROM || "xenonnetworkalt@gmail.com";
-
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "api-key": key,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      sender: { email: from, name: "Xenon" },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-      textContent: text || undefined,
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    console.error("Brevo error", res.status, body);
-    throw new Error("Brevo send failed");
-  }
-}
 
 function load() {
   try {
@@ -81,12 +46,40 @@ function normalizeCode(code) {
   return (code || "").trim().toUpperCase().replace(/-/g, "");
 }
 
-// Health check
+async function sendEmail({ to, subject, html, text }) {
+  const key = process.env.BREVO_API_KEY;
+  if (!key) {
+    console.error("BREVO_API_KEY missing");
+    throw new Error("Email not configured");
+  }
+
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "api-key": key,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: { email: EMAIL_FROM, name: "Xenon" },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text || undefined,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Brevo error", res.status, body);
+    throw new Error("Brevo send failed");
+  }
+}
+
 app.get("/", (req, res) => {
   res.json({ ok: true, service: "xen0nkidd-auth" });
 });
 
-// Register
 app.post("/api/auth/register", async (req, res) => {
   try {
     const username = (req.body?.username || "").trim();
@@ -114,7 +107,6 @@ app.post("/api/auth/register", async (req, res) => {
       resetToken: null,
       resetTokenExpires: null,
     };
-
     db.users.push(user);
     save(db);
 
@@ -129,19 +121,15 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// Login
 app.post("/api/auth/login", async (req, res) => {
   try {
     const username = (req.body?.username || "").trim();
     const password = req.body?.password || "";
     const db = load();
-
     const user = db.users.find((u) => u.username.toLowerCase() === username.toLowerCase());
-
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({ error: "Invalid username or password" });
     }
-
     res.json({
       ok: true,
       token: sign(user),
@@ -153,65 +141,48 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// Me (optional)
 app.get("/api/auth/me", (req, res) => {
   try {
     const auth = req.headers.authorization || "";
-
-    if (!auth.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Not logged in" });
-    }
-
+    if (!auth.startsWith("Bearer ")) return res.status(401).json({ error: "Not logged in" });
     const payload = jwt.verify(auth.slice(7), JWT_SECRET);
     const db = load();
     const user = db.users.find((u) => u.id === payload.id);
-
     if (!user) return res.status(401).json({ error: "Not logged in" });
-
-    res.json({
-      ok: true,
-      user: { username: user.username, email: user.email || null },
-    });
+    res.json({ ok: true, user: { username: user.username, email: user.email || null } });
   } catch {
     res.status(401).json({ error: "Not logged in" });
   }
 });
 
-// Logout
-app.post("/api/auth/logout", (req, res) => {
-  res.json({ ok: true });
-});
+app.post("/api/auth/logout", (req, res) => res.json({ ok: true }));
 
-// Forgot password → Brevo email link + 20-char token
 app.post("/api/auth/forgot-password", async (req, res) => {
   const email = (req.body?.email || "").trim().toLowerCase();
+  res.json({ ok: true });
 
-  res.json({ ok: true }); // Always OK — don't leak if email exists
-
-  if (!email || !process.env.BREVO_API_KEY) return;
+  if (!email) return;
 
   try {
     const db = load();
     const user = db.users.find((u) => (u.email || "").toLowerCase() === email);
-
     if (!user) return;
 
     const token = token20();
     user.resetToken = token;
-    user.resetTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+    user.resetTokenExpires = Date.now() + 60 * 60 * 1000;
     save(db);
 
     const link = `${APP_URL}/reset.html?token=${token}`;
-
     await sendEmail({
       to: email,
-      subject: "Reset your password",
+      subject: "Reset your Xenon password",
       html: `
         <p>You requested a password reset.</p>
         <p><a href="${link}">Reset your password</a></p>
         <p>Or open ${APP_URL}/reset.html and paste this token:</p>
         <p><strong style="font-size:18px;letter-spacing:2px">${token}</strong></p>
-        <p>This token expires in 1 hour.</p>
+        <p>Expires in 1 hour.</p>
       `,
       text: `Reset link: ${link}\n\nToken: ${token}\n\nExpires in 1 hour.`,
     });
@@ -220,24 +191,18 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   }
 });
 
-// Reset password → auto-login token
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
     const token = (req.body?.token || "").trim();
     const password = req.body?.password || "";
-
     if (!token || password.length < 6) {
       return res.status(400).json({ error: "Invalid token or password" });
     }
-
     const db = load();
     const user = db.users.find(
       (u) => u.resetToken === token && u.resetTokenExpires && u.resetTokenExpires > Date.now()
     );
-
-    if (!user) {
-      return res.status(400).json({ error: "Invalid or expired token" });
-    }
+    if (!user) return res.status(400).json({ error: "Invalid or expired token" });
 
     user.passwordHash = await bcrypt.hash(password, 10);
     user.resetToken = null;
@@ -255,62 +220,19 @@ app.post("/api/auth/reset-password", async (req, res) => {
   }
 });
 
-// Change password (logged in)
-app.post("/api/auth/change-password", async (req, res) => {
-  try {
-    const auth = req.headers.authorization || "";
-
-    if (!auth.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Not logged in" });
-    }
-
-    const payload = jwt.verify(auth.slice(7), JWT_SECRET);
-    const currentPassword = req.body?.currentPassword || "";
-    const newPassword = req.body?.newPassword || "";
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: "New password must be at least 6 characters" });
-    }
-
-    const db = load();
-    const user = db.users.find((u) => u.id === payload.id);
-
-    if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
-      return res.status(401).json({ error: "Current password is wrong" });
-    }
-
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
-    save(db);
-
-    res.json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Add email (no login) — only if account has no email yet
 app.post("/api/auth/add-email", async (req, res) => {
   try {
     const username = (req.body?.username || "").trim();
     const email = (req.body?.email || "").trim().toLowerCase();
-
     if (!username || !email.includes("@")) {
       return res.status(400).json({ error: "Username and email required" });
     }
-
     const db = load();
     const user = db.users.find((u) => u.username.toLowerCase() === username.toLowerCase());
-
     if (!user) return res.status(404).json({ error: "User not found" });
-
-    if (user.email) {
-      return res.status(400).json({ error: "Account already has an email" });
-    }
-
+    if (user.email) return res.status(400).json({ error: "Account already has an email" });
     user.email = email;
     save(db);
-
     res.json({ ok: true });
   } catch (e) {
     console.error(e);
@@ -318,59 +240,36 @@ app.post("/api/auth/add-email", async (req, res) => {
   }
 });
 
-// Claim account
 app.post("/api/auth/claim-account", async (req, res) => {
   try {
     const username = (req.body?.username || "").trim();
     const email = (req.body?.email || "").trim().toLowerCase();
-
     if (!username || !email.includes("@")) {
       return res.status(400).json({ error: "Username and email required" });
     }
-
     const db = load();
     const user = db.users.find((u) => u.username.toLowerCase() === username.toLowerCase());
-
     if (!user) return res.status(404).json({ error: "User not found" });
-
-    if (user.email) {
-      return res.status(400).json({
-        error: "Account already has an email",
-        claimable: false,
-      });
-    }
-
+    if (user.email) return res.status(400).json({ error: "Account already has an email" });
     user.email = email;
     save(db);
-
-    res.json({ ok: true, claimable: true });
+    res.json({ ok: true });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// Save backup code
 app.post("/api/auth/backup-code", async (req, res) => {
   try {
     const code = normalizeCode(req.body?.code);
-
-    if (code.length < 16) {
-      return res.status(400).json({ error: "Invalid backup code" });
-    }
+    if (code.length < 16) return res.status(400).json({ error: "Invalid backup code" });
 
     const db = load();
     let user = null;
 
-    const resetToken = (req.body?.token || "").trim();
-
-    if (resetToken) {
-      user = db.users.find((u) => u.resetToken === resetToken);
-    }
-
     const auth = req.headers.authorization || "";
-
-    if (!user && auth.startsWith("Bearer ")) {
+    if (auth.startsWith("Bearer ")) {
       try {
         const payload = jwt.verify(auth.slice(7), JWT_SECRET);
         user = db.users.find((u) => u.id === payload.id);
@@ -378,18 +277,14 @@ app.post("/api/auth/backup-code", async (req, res) => {
     }
 
     const username = (req.body?.username || "").trim();
-
     if (!user && username) {
       user = db.users.find((u) => u.username.toLowerCase() === username.toLowerCase());
     }
 
-    if (!user) {
-      return res.status(401).json({ error: "Not authorized to set backup code" });
-    }
+    if (!user) return res.status(401).json({ error: "Not authorized to set backup code" });
 
     user.backupCodeHash = await bcrypt.hash(code, 10);
     save(db);
-
     res.json({ ok: true });
   } catch (e) {
     console.error(e);
@@ -397,20 +292,14 @@ app.post("/api/auth/backup-code", async (req, res) => {
   }
 });
 
-// Login with backup code only
 app.post("/api/auth/login-backup", async (req, res) => {
   try {
     const raw = normalizeCode(req.body?.code);
-
-    if (raw.length < 16) {
-      return res.status(400).json({ error: "Invalid backup code" });
-    }
+    if (raw.length < 16) return res.status(400).json({ error: "Invalid backup code" });
 
     const db = load();
-
     for (const user of db.users) {
       if (!user.backupCodeHash) continue;
-
       if (await bcrypt.compare(raw, user.backupCodeHash)) {
         return res.json({
           ok: true,
@@ -419,7 +308,6 @@ app.post("/api/auth/login-backup", async (req, res) => {
         });
       }
     }
-
     res.status(401).json({ error: "Invalid backup code" });
   } catch (e) {
     console.error(e);
