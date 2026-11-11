@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reset Password – Xenon</title>
+<link rel="icon" href="https://www.ixl.com/ixl-favicon.png" type="image/png">
+<style>
+  :root {
+    --bg: #0f0a0c;
+    --surface: #1a1216;
+    --border: #3a2a32;
+    --text: #f5eef1;
+    --muted: #b8a0aa;
+    --accent: #ff294d;
+    --accent-soft: rgba(255, 41, 77, 0.15);
+    --ok: #3dd68c;
+    --danger: #ff5c5c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.4);
+  }
+  h1 { font-size: 22px; margin-bottom: 6px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; line-height: 1.45; }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--muted);
+  }
+  input {
+    width: 100%;
+    height: 42px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #120c10;
+    color: var(--text);
+    padding: 0 14px;
+    font-size: 15px;
+    margin-bottom: 14px;
+    outline: none;
+    font-family: inherit;
+  }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; letter-spacing: 0.02em; }
+  button.primary {
+    width: 100%;
+    height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  button.primary:disabled { opacity: .55; cursor: not-allowed; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.05); }
+  .msg {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    display: none;
+  }
+  .msg.ok { display: block; background: rgba(61,214,140,.12); color: var(--ok); border: 1px solid rgba(61,214,140,.3); }
+  .msg.err { display: block; background: rgba(255,92,92,.12); color: var(--danger); border: 1px solid rgba(255,92,92,.3); }
+  .back {
+    display: block;
+    text-align: center;
+    margin-top: 18px;
+    color: var(--muted);
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .back:hover { color: var(--text); }
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin: -8px 0 14px;
+    line-height: 1.4;
+  }
+  .token-badge {
+    display: none;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255,41,77,.1);
+    border: 1px solid rgba(255,41,77,.25);
+    font-size: 12px;
+    word-break: break-all;
+    line-height: 1.4;
+  }
+  .token-badge.show { display: block; }
+  .token-badge code { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--accent); }
+  .code-box {
+    margin: 12px 0;
+    padding: 12px;
+    border-radius: 10px;
+    background: #120c10;
+    border: 1px dashed var(--accent);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    text-align: center;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn-row button, .btn-row a {
+    flex: 1;
+    min-width: 120px;
+    height: 40px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+  .btn-copy {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+  }
+  .btn-go {
+    border: 0;
+    background: var(--accent);
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Reset password</h1>
+    <p class="sub">Use the link from your email, or paste the 20-character token that was emailed to you.</p>
+
+    <div class="token-badge" id="tokenBadge">
+      Token from link: <code id="tokenPreview"></code>
+    </div>
+
+    <form id="form">
+      <label for="token">Reset token</label>
+      <input id="token" class="mono" type="text" placeholder="Paste the token from your email" autocomplete="off" spellcheck="false">
+      <p class="hint">20-character code from your email. Opening the email link fills this in automatically.</p>
+
+      <label for="password">New password</label>
+      <input id="password" type="password" minlength="6" placeholder="at least 6 characters" required autocomplete="new-password">
+
+      <label for="confirm">Confirm password</label>
+      <input id="confirm" type="password" minlength="6" placeholder="repeat password" required autocomplete="new-password">
+
+      <button type="submit" class="primary" id="btn">Update password</button>
+    </form>
+
+    <div class="msg" id="msg"></div>
+    <a class="back" href="index.html" id="backLink">← Back to home</a>
+  </div>
+
+<script>
+(function () {
+var API_BASE = "https://xen0nkidd-auth.onrender.com";
+
+  function qs(name) {
+    try { return new URLSearchParams(location.search).get(name); } catch (e) { return null; }
+  }
+
+  function genBackupCode() {
+    var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    var raw = "";
+    var arr = new Uint8Array(20);
+    crypto.getRandomValues(arr);
+    for (var i = 0; i < 20; i++) raw += chars[arr[i] % chars.length];
+    return raw.replace(/(.{4})/g, "$1-").replace(/-$/, "");
+  }
+
+  var urlToken = (qs("token") || qs("t") || "").trim();
+  var tokenInput = document.getElementById("token");
+  var badge = document.getElementById("tokenBadge");
+  var preview = document.getElementById("tokenPreview");
+  var form = document.getElementById("form");
+  var msg = document.getElementById("msg");
+  var btn = document.getElementById("btn");
+
+  if (urlToken) {
+    tokenInput.value = urlToken;
+    badge.classList.add("show");
+    preview.textContent = urlToken.length > 48 ? urlToken.slice(0, 24) + "…" + urlToken.slice(-12) : urlToken;
+  }
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    msg.className = "msg";
+    msg.textContent = "";
+
+    var token = (tokenInput.value || "").trim();
+    var pw = document.getElementById("password").value;
+    var cf = document.getElementById("confirm").value;
+
+    if (!token) {
+      msg.className = "msg err";
+      msg.textContent = "Paste the reset token from your email (or open the full link).";
+      tokenInput.focus();
+      return;
+    }
+    if (pw.length < 6) {
+      msg.className = "msg err";
+      msg.textContent = "Password must be at least 6 characters.";
+      return;
+    }
+    if (pw !== cf) {
+      msg.className = "msg err";
+      msg.textContent = "Passwords do not match.";
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Updating…";
+
+    try {
+      var res = await fetch((API_BASE || "") + "/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: token, password: pw })
+      });
+      var data = null;
+      try { data = await res.json(); } catch (err) {}
+
+      if (!res.ok) {
+        msg.className = "msg err";
+        msg.textContent = (data && data.error) || "Reset failed. Token may be invalid or expired.";
+        btn.disabled = false;
+        btn.textContent = "Update password";
+        return;
+      }
+
+      // ---- SUCCESS ----
+      // 1) New backup code
+      var code = genBackupCode();
+      try { localStorage.setItem("xenon_backup_code", code); } catch (e) {}
+
+      // 2) Auto-login: prefer token from API, else try login with returned username
+      var loggedIn = false;
+      if (data && data.token) {
+        try { localStorage.setItem("arctic_auth_token", data.token); } catch (e) {}
+        loggedIn = true;
+      } else if (data && data.user && data.user.username) {
+        try {
+          var loginRes = await fetch((API_BASE || "") + "/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: data.user.username, password: pw })
+          });
+          var loginData = null;
+          try { loginData = await loginRes.json(); } catch (e) {}
+          if (loginRes.ok && loginData && loginData.token) {
+            try { localStorage.setItem("arctic_auth_token", loginData.token); } catch (e) {}
+            loggedIn = true;
+          }
+        } catch (e) {}
+      }
+
+      // 3) Sync backup code to server (authenticated if we have token)
+      try {
+        var headers = { "Content-Type": "application/json" };
+        var tok = null;
+        try { tok = localStorage.getItem("arctic_auth_token"); } catch (e) {}
+        if (tok) headers["Authorization"] = "Bearer " + tok;
+        fetch((API_BASE || "") + "/api/auth/backup-code", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ code: code, token: token })
+        });
+      } catch (e) {}
+
+      form.style.display = "none";
+      document.getElementById("backLink").style.display = "none";
+
+      msg.className = "msg ok";
+      msg.innerHTML =
+        "<strong>Password updated" + (loggedIn ? " — you're signed in" : "") + ".</strong><br><br>" +
+        "<strong>Your new backup code</strong> (save this — also in Chat → Settings):" +
+        "<div class=\"code-box\" id=\"successCode\">" + code + "</div>" +
+        "<div class=\"btn-row\">" +
+        "  <button type=\"button\" class=\"btn-copy\" id=\"copyCode\">Copy code</button>" +
+        "  <a class=\"btn-go\" href=\"app.html\">Open app →</a>" +
+        "</div>";
+
+      document.getElementById("copyCode").onclick = function () {
+        navigator.clipboard.writeText(code).then(function () {
+          document.getElementById("copyCode").textContent = "Copied!";
+        }).catch(function () {
+          var range = document.createRange();
+          range.selectNode(document.getElementById("successCode"));
+          var sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        });
+      };
+
+      // Auto-redirect after short delay so they can see/copy the code
+      setTimeout(function () {
+        location.href = "app.html";
+      }, 8000);
+
+    } catch (err) {
+      msg.className = "msg err";
+      msg.textContent = "Network error. Try again.";
+      btn.disabled = false;
+      btn.textContent = "Update password";
+    }
+  });
+})();
+</script>
+</body>
+</html>
